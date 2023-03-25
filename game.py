@@ -1,127 +1,204 @@
 import pygame
 import random
+import sys
 
 # Inicializar Pygame
 pygame.init()
 
-# Definir las dimensiones de la pantalla
+# Establecer las dimensiones de la pantalla
 screen_width = 800
 screen_height = 600
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Juego de recoger objetos")
 
-# Definir los colores que se usarán en el juego
+# Establecer el título de la ventana
+pygame.display.set_caption("Mi juego en Pygame")
+
+# Establecer los colores
 black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 0, 0)
 blue = (0, 0, 255)
 green = (0, 255, 0)
 
-# Definir la velocidad del personaje
+# Establecer las propiedades del jugador
+player_x = 400
+player_y = 500
+player_width = 40
+player_height = 40
 player_speed = 5
 
-# Definir la velocidad de los obstáculos
-obstacle_speed = 3
+# Establecer las propiedades de los objetos
+object_width = 20
+object_height = 20
+object_speed = 1
 
-# Definir las dimensiones del personaje y los obstáculos
-player_width = 50
-player_height = 50
-obstacle_width = 50
-obstacle_height = 50
+# Establecer las propiedades de los obstáculos
+obstacle_width = 40
+obstacle_height = 40
+obstacle_speed = 2
 
-# Definir la posición inicial del personaje
-player_x = screen_width / 2 - player_width / 2
-player_y = screen_height - player_height
+# Establecer las propiedades de los objetos recolectables
+object_points = 1
 
-# Definir la lista de obstáculos
-obstacles = []
+# Establecer las propiedades del objeto de aumento de velocidad
+speed_boost_duration = 5
+speed_boost_amount = 10
 
-# Definir la lista de objetos recolectables
+# Crear el reloj
+clock = pygame.time.Clock()
+
+# Crear las listas de objetos, obstáculos y velocidad de aumento
 objects = []
+obstacles = []
+speed_boosts = []
 
-# Definir la función para crear un objeto recolectable en una posición aleatoria
-def create_object():
-    object_x = random.randint(0, screen_width - obstacle_width)
-    object_y = random.randint(0, screen_height / 2)
-    objects.append(pygame.Rect(object_x, object_y, obstacle_width, obstacle_height))
+# Establecer la puntuación
+score = 0
 
-# Definir la función para crear un obstáculo en una posición aleatoria
+# Establecer el estado del juego
+game_over = False
+
+# Establecer el tiempo restante del aumento de velocidad
+speed_boost_time = 0
+
+# Función para crear obstáculos
 def create_obstacle():
     obstacle_x = random.randint(0, screen_width - obstacle_width)
-    obstacle_y = 0
-    obstacles.append(pygame.Rect(obstacle_x, obstacle_y, obstacle_width, obstacle_height))
+    obstacle_y = -obstacle_height
+    obstacle_rect = pygame.Rect(obstacle_x, obstacle_y, obstacle_width, obstacle_height)
+    obstacles.append(obstacle_rect)
 
-# Bucle principal del juego
-game_over = False
-clock = pygame.time.Clock()
-score = 0
-while not game_over:
-    # Manejar eventos del teclado
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
+# Función para crear objetos recolectables
+def create_object():
+    object_x = random.randint(0, screen_width - object_width)
+    object_y = -object_height
+    object_rect = pygame.Rect(object_x, object_y, object_width, object_height)
+    objects.append(object_rect)
+
+# Función para crear el objeto de aumento de velocidad
+def create_speed_boost():
+    speed_boost_x = random.randint(0, screen_width - object_width)
+    speed_boost_y = -object_height
+    speed_boost_rect = pygame.Rect(speed_boost_x, speed_boost_y, object_width, object_height)
+    speed_boosts.append(speed_boost_rect)
+
+# Función para mover el jugador
+def move_player(keys_pressed):
+    global player_x, player_y, speed_boost_time
+    if keys_pressed[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed + (speed_boost_amount if speed_boost_time > 0 else 0)
+    if keys_pressed[pygame.K_RIGHT] and player_x < screen_width - player_width:
+        player_x += player_speed + (speed_boost_amount if speed_boost_time > 0 else 0)
+    if keys_pressed[pygame.K_UP] and player_y > 0:
+        player_y -= player_speed + (speed_boost_amount if speed_boost_time > 0 else 0)
+    if keys_pressed[pygame.K_DOWN] and player_y < screen_height - player_height:
+        player_y += player_speed + (speed_boost_amount if speed_boost_time > 0 else 0)
+
+    # Restar el tiempo restante del aumento de velocidad si es mayor que cero
+    if speed_boost_time > 0:
+        speed_boost_time -= 1 / 60
+
+# Función para mover los objetos
+def move_objects():
+    global score, game_over, speed_boost_time
+    for object_rect in objects:
+        object_rect.y += object_speed
+        if object_rect.colliderect(player_rect):
+            score += object_points
+            objects.remove(object_rect)
+    for obstacle_rect in obstacles:
+        obstacle_rect.y += obstacle_speed
+        if obstacle_rect.colliderect(player_rect):
             game_over = True
-
-    # Mover el personaje
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT] and player_x > 0:
-        player_x -= player_speed
-    if keys[pygame.K_RIGHT] and player_x < screen_width - player_width:
-        player_x += player_speed
-
-    # Mover los obstáculos y los objetos recolectables
-    for obstacle in obstacles:
-        obstacle.move_ip(0, obstacle_speed)
-    for object in objects:
-        object.move_ip(0, obstacle_speed)
+    for speed_boost_rect in speed_boosts:
+        speed_boost_rect.y += 1
+        if speed_boost_rect.colliderect(player_rect):
+            speed_boost_time = speed_boost_duration
+            speed_boosts.remove(speed_boost_rect)
 
     # Eliminar los obstáculos que han salido de la pantalla
     for obstacle in obstacles[:]:
-        if obstacle.bottom > screen_height:
+        if obstacle.top > screen_height:
             obstacles.remove(obstacle)
 
     # Eliminar los objetos recolectables que han salido de la pantalla
     for object in objects[:]:
-        if object.bottom > screen_height:
+        if object.top > screen_height:
             objects.remove(object)
-
-    # Comprobar si el personaje ha tocado un objeto recolectable
-    for object in objects[:]:
-        if object.colliderect((player_x, player_y, player_width, player_height)):
-            objects.remove(object)
-            score += 1
-
-    # Comprobar si el personaje ha tocado un obstáculo
-    for obstacle in obstacles[:]:
-        if obstacle.colliderect((player_x, player_y, player_width, player_height)):
             game_over = True
 
-    # Crear obstáculos y objetos recolectables aleatorios
-    if random.randint(0, 100) < 5:
-        create_obstacle()
-    if random.randint(0, 100) < 5:
-        create_object()
+    # Eliminar los objetos de aumento de velocidad que han salido de la pantalla
+    for speed_boost in speed_boosts[:]:
+        if speed_boost.top > screen_height:
+            speed_boosts.remove(speed_boost)
 
-    # Pintar la pantalla
+# Función para dibujar los objetos
+def draw_objects():
+    for object_rect in objects:
+        pygame.draw.rect(screen, blue, object_rect)
+    for obstacle_rect in obstacles:
+        pygame.draw.rect(screen, red, obstacle_rect)
+    for speed_boost_rect in speed_boosts:
+        pygame.draw.rect(screen, green, speed_boost_rect)
+
+# Función para dibujar la pantalla de juego
+def draw_game():
     screen.fill(black)
-
-    # Pintar el personaje
-    player_rect = pygame.draw.rect(screen, red, (player_x, player_y, player_width, player_height))
-
-    # Pintar los obstáculos
-    for obstacle in obstacles:
-        pygame.draw.rect(screen, blue, obstacle)
-
-    # Pintar los objetos recolectables
-    for object in objects:
-        pygame.draw.rect(screen, green, object)
-
-    # Mostrar la puntuación
-    font = pygame.font.Font(None, 36)
-    text = font.render("Puntuación: " + str(score), True, white)
-    screen.blit(text, (10, 10))
-
-    # Actualizar la pantalla
+    pygame.draw.rect(screen, white, player_rect)
+    draw_objects()
+    score_font = pygame.font.Font(None, 36)
+    score_text = score_font.render(f"Puntuación: {str(score)}", True, white)
+    screen.blit(score_text, (10, 10))
     pygame.display.update()
 
-    # Establecer la velocidad de fotogramas
+# Crear el rectángulo del jugador
+player_rect = pygame.Rect(player_x, player_y, player_width, player_height)
+
+# Bucle principal del juego
+while not game_over:
+    # Manejar los eventos de Pygame
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_over = True
+
+    # Mover el jugador
+    keys_pressed = pygame.key.get_pressed()
+    move_player(keys_pressed)
+    player_rect = pygame.Rect(player_x, player_y, player_width, player_height)
+
+    # Crear objetos y obstáculos aleatorios
+    if random.randint(0, 50) == 0:
+        create_object()
+    if random.randint(0, 100) == 0:
+        create_obstacle()
+    if random.randint(0, 500) == 0:
+        create_speed_boost()
+
+    # Mover los objetos
+    move_objects()
+
+    # Dibujar la pantalla del juego
+    draw_game()
+
+    # Verificar si se ha perdido el juego
+    if score < 0:
+        game_over = True
+
+    # Establecer el título de la ventana con la puntuación
+    pygame.display.set_caption("Juego de objetos - Puntuación: " + str(score))
+
+    # Esperar un corto período de tiempo
     clock.tick(60)
+
+# Si se ha perdido el juego, mostrar un mensaje de "Game Over"
+game_over_font = pygame.font.Font(None, 72)
+game_over_text = game_over_font.render("Game Over", True, red)
+screen.blit(game_over_text, (screen_width/2 - game_over_text.get_width()/2, screen_height/2 - game_over_text.get_height()/2))
+pygame.display.update()
+
+# Esperar tres segundos antes de cerrar la ventana
+pygame.time.wait(3000)
+
+# Salir de Pygame y del programa
+pygame.quit()
+sys.exit()
